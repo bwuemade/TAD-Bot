@@ -1,60 +1,38 @@
 const {
     SlashCommandBuilder,
-    EmbedBuilder,
     PermissionFlagsBits,
-    ChannelType
+    ChannelType,
+    EmbedBuilder
 } = require('discord.js');
-
-// =========================
-// SLASH COMMAND
-// =========================
 
 const data =
     new SlashCommandBuilder()
         .setName('announce')
-        .setDescription(
-            'Create an announcement'
-        )
-
-        // =========================
-        // TITLE
-        // =========================
+        .setDescription('Create an announcement embed')
 
         .addStringOption(
             option =>
                 option
                     .setName('title')
-                    .setDescription(
-                        'Announcement title'
-                    )
+                    .setDescription('Announcement title')
+                    .setMaxLength(256)
                     .setRequired(true)
         )
-
-        // =========================
-        // MESSAGE
-        // =========================
 
         .addStringOption(
             option =>
                 option
                     .setName('message')
-                    .setDescription(
-                        'Announcement message'
-                    )
+                    .setDescription('Announcement message')
+                    .setMaxLength(4000)
                     .setRequired(true)
         )
-
-        // =========================
-        // CHANNEL
-        // =========================
 
         .addChannelOption(
             option =>
                 option
                     .setName('channel')
-                    .setDescription(
-                        'Channel where the announcement will be posted'
-                    )
+                    .setDescription('Channel where the announcement will be sent')
                     .addChannelTypes(
                         ChannelType.GuildText,
                         ChannelType.GuildAnnouncement
@@ -62,222 +40,161 @@ const data =
                     .setRequired(true)
         )
 
-        // =========================
-        // ROLE MENTION
-        // =========================
-
         .addRoleOption(
             option =>
                 option
                     .setName('mention')
-                    .setDescription(
-                        'Optional role to mention'
-                    )
+                    .setDescription('Optional role to mention')
                     .setRequired(false)
         )
 
-        // =========================
-        // IMAGE
-        // =========================
-
-        .addStringOption(
+        .addAttachmentOption(
             option =>
                 option
                     .setName('image')
-                    .setDescription(
-                        'Optional image URL'
-                    )
+                    .setDescription('Optional image for the announcement')
                     .setRequired(false)
         )
-
-        // =========================
-        // FOOTER
-        // =========================
 
         .addStringOption(
             option =>
                 option
                     .setName('footer')
-                    .setDescription(
-                        'Optional footer text'
-                    )
+                    .setDescription('Optional footer text')
+                    .setMaxLength(2048)
                     .setRequired(false)
         );
 
-// =========================
-// EXECUTE
-// =========================
-
-async function execute(
-    interaction,
-    client
-) {
-
-    // =========================
-    // SILENT ACKNOWLEDGEMENT
-    // =========================
+async function execute(interaction) {
 
     await interaction.deferReply({
         ephemeral: true
     });
 
-    // =========================
-    // PERMISSION CHECK
-    // =========================
+    // ==============================
+    // MODERATOR CHECK
+    // ==============================
 
     if (
         !interaction.memberPermissions.has(
             PermissionFlagsBits.ManageMessages
         )
     ) {
-
         return interaction.editReply({
             content:
-                '❌ You do not have permission to create announcements.'
+                '❌ You do not have permission to use this command.'
         });
     }
 
-    // =========================
+    // ==============================
     // GET OPTIONS
-    // =========================
+    // ==============================
 
     const title =
-        interaction.options
-            .getString('title')
-            .trim();
+        interaction.options.getString('title');
 
     const message =
-        interaction.options
-            .getString('message')
-            .trim();
+        interaction.options.getString('message');
 
     const channel =
-        interaction.options
-            .getChannel('channel');
+        interaction.options.getChannel('channel');
 
-    const mentionRole =
-        interaction.options
-            .getRole('mention');
+    const role =
+        interaction.options.getRole('mention');
 
-    const image =
-        interaction.options
-            .getString('image');
+    const attachment =
+        interaction.options.getAttachment('image');
 
     const footer =
-        interaction.options
-            .getString('footer');
+        interaction.options.getString('footer');
 
-    // =========================
-    // VALIDATION
-    // =========================
+    // ==============================
+    // BASIC VALIDATION
+    // ==============================
 
-    if (!title) {
-
+    if (!title || !message || !channel) {
         return interaction.editReply({
             content:
-                '❌ Please provide an announcement title.'
+                '❌ Please provide a title, message, and channel.'
         });
     }
 
-    if (!message) {
+    // ==============================
+    // IMAGE VALIDATION
+    // ==============================
 
-        return interaction.editReply({
-            content:
-                '❌ Please provide an announcement message.'
-        });
-    }
+    if (attachment) {
 
-    if (!channel) {
+        const allowedTypes = [
+            'image/png',
+            'image/jpeg',
+            'image/jpg',
+            'image/gif',
+            'image/webp'
+        ];
 
-        return interaction.editReply({
-            content:
-                '❌ Please select a channel.'
-        });
-    }
-
-    // =========================
-    // IMAGE URL VALIDATION
-    // =========================
-
-    if (image) {
-
-        try {
-
-            new URL(image);
-
-        } catch {
-
+        if (
+            attachment.contentType &&
+            !allowedTypes.includes(
+                attachment.contentType
+            )
+        ) {
             return interaction.editReply({
                 content:
-                    '❌ The image must be a valid URL.'
+                    '❌ Please upload a valid image file (PNG, JPG, GIF, or WEBP).'
             });
         }
     }
 
-    // =========================
+    // ==============================
     // CREATE EMBED
-    // =========================
+    // ==============================
 
     const embed =
         new EmbedBuilder()
+            .setColor('#87CEFA')
             .setTitle(title)
             .setDescription(message)
-            .setColor('#87CEFA')
             .setTimestamp();
 
-    // =========================
-    // IMAGE
-    // =========================
+    // ==============================
+    // ADD IMAGE TO EMBED
+    // ==============================
 
-    if (image) {
-
-        embed.setImage(image);
+    if (attachment) {
+        embed.setImage(attachment.url);
     }
 
-    // =========================
-    // FOOTER
-    // =========================
+    // ==============================
+    // ADD FOOTER
+    // ==============================
 
     if (footer) {
-
         embed.setFooter({
             text: footer
         });
     }
 
-    // =========================
-    // MENTION
-    // =========================
-
-    const content =
-        mentionRole
-            ? `<@&${mentionRole.id}>`
-            : undefined;
-
-    // =========================
+    // ==============================
     // SEND ANNOUNCEMENT
-    // =========================
+    // ==============================
 
     try {
 
         await channel.send({
-
-            content,
+            content: role
+                ? `${role}`
+                : undefined,
 
             embeds: [
                 embed
             ],
 
-            allowedMentions:
-                mentionRole
-                    ? {
-                        roles: [
-                            mentionRole.id
-                        ]
-                    }
-                    : {
-                        parse: []
-                    }
+            allowedMentions: {
+                roles: role
+                    ? [role.id]
+                    : []
+            }
         });
 
     } catch (error) {
@@ -289,13 +206,13 @@ async function execute(
 
         return interaction.editReply({
             content:
-                '❌ I could not send the announcement. Make sure the bot can send messages and embeds in that channel.'
+                '❌ I could not send the announcement. Make sure I have permission to send messages and embeds in that channel.'
         });
     }
 
-    // =========================
-    // DELETE COMMAND RESPONSE
-    // =========================
+    // ==============================
+    // SILENT COMMAND
+    // ==============================
 
     try {
 
@@ -309,10 +226,6 @@ async function execute(
         );
     }
 }
-
-// =========================
-// EXPORT
-// =========================
 
 module.exports = {
     data,
