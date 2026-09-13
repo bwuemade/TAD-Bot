@@ -17,7 +17,7 @@ async function updatePollLog(
     if (!channelId) {
 
         console.log(
-            '⚠️ POLL_LOG_CHANNEL_ID is not set.'
+            'POLL_LOG_CHANNEL_ID is not set.'
         );
 
         return;
@@ -36,7 +36,7 @@ async function updatePollLog(
         ) {
 
             console.log(
-                '⚠️ Poll log channel could not be found.'
+                'Poll log channel could not be found.'
             );
 
             return;
@@ -61,13 +61,10 @@ async function updatePollLog(
                     optionIndex
                 ) &&
                 optionIndex >= 0 &&
-                optionIndex <
-                    counts.length
+                optionIndex < counts.length
             ) {
 
-                counts[
-                    optionIndex
-                ]++;
+                counts[optionIndex]++;
             }
         }
 
@@ -114,8 +111,8 @@ async function updatePollLog(
 
         const status =
             poll.ended
-                ? '🔴 **POLL ENDED**'
-                : '🟢 **POLL ACTIVE**';
+                ? '**POLL ENDED**'
+                : '**POLL ACTIVE**';
 
         // =========================
         // EMBED
@@ -133,7 +130,7 @@ async function updatePollLog(
                 .setDescription(
                     `### ${poll.question}\n\n` +
                     `${results}\n\n` +
-                    `👥 **Total votes:** ${totalVotes}\n\n` +
+                    `**Total votes:** ${totalVotes}\n\n` +
                     `${status}`
                 )
 
@@ -188,7 +185,7 @@ async function updatePollLog(
         } catch (error) {
 
             console.log(
-                '⚠️ Existing poll log could not be found. Creating a new one.'
+                'Existing poll log could not be found. Creating a new one.'
             );
 
             const newLogMessage =
@@ -196,7 +193,7 @@ async function updatePollLog(
 
                     content:
                         poll.ended
-                            ? '📊 **Poll Ended**'
+                            ? '**Poll Ended**'
                             : '**Poll Live Update**',
 
                     embeds: [
@@ -218,7 +215,7 @@ async function updatePollLog(
 
             content:
                 poll.ended
-                    ? '📊 **Poll Ended**'
+                    ? '**Poll Ended**'
                     : '**Poll Live Update**',
 
             embeds: [
@@ -230,7 +227,7 @@ async function updatePollLog(
     catch (error) {
 
         console.error(
-            '❌ Error updating poll log:',
+            'Error updating poll log:',
             error
         );
     }
