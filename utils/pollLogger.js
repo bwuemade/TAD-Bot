@@ -126,8 +126,8 @@ async function updatePollLog(
 
                 .setTitle(
                     poll.ended
-                        ? '📊 Poll — Final Results'
-                        : '📊 Poll — Live Results'
+                        ? 'Poll — Final Results'
+                        : 'Poll — Live Results'
                 )
 
                 .setDescription(
@@ -158,7 +158,7 @@ async function updatePollLog(
                 await channel.send({
 
                     content:
-                        `📊 **Poll Created**\n` +
+                        `**Poll Created**\n` +
                         `Created by <@${poll.createdBy}>`,
 
                     embeds: [
@@ -197,7 +197,7 @@ async function updatePollLog(
                     content:
                         poll.ended
                             ? '📊 **Poll Ended**'
-                            : '📊 **Poll Live Update**',
+                            : '**Poll Live Update**',
 
                     embeds: [
                         embed
@@ -219,7 +219,7 @@ async function updatePollLog(
             content:
                 poll.ended
                     ? '📊 **Poll Ended**'
-                    : '📊 **Poll Live Update**',
+                    : '**Poll Live Update**',
 
             embeds: [
                 embed
