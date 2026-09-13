@@ -5,6 +5,14 @@ const {
     EmbedBuilder
 } = require('discord.js');
 
+const allowedImageTypes = [
+    'image/png',
+    'image/jpeg',
+    'image/jpg',
+    'image/gif',
+    'image/webp'
+];
+
 const data =
     new SlashCommandBuilder()
         .setName('announce')
@@ -52,7 +60,7 @@ const data =
             option =>
                 option
                     .setName('image')
-                    .setDescription('Optional image for the announcement')
+                    .setDescription('Optional large image')
                     .setRequired(false)
         )
 
@@ -63,7 +71,16 @@ const data =
                     .setDescription('Optional footer text')
                     .setMaxLength(2048)
                     .setRequired(false)
+        )
+
+        .addAttachmentOption(
+            option =>
+                option
+                    .setName('footer_image')
+                    .setDescription('Optional footer icon image')
+                    .setRequired(false)
         );
+
 
 async function execute(interaction) {
 
@@ -71,9 +88,9 @@ async function execute(interaction) {
         ephemeral: true
     });
 
-    // ==============================
-    // MODERATOR CHECK
-    // ==============================
+    // =========================
+    // PERMISSION CHECK
+    // =========================
 
     if (
         !interaction.memberPermissions.has(
@@ -86,9 +103,10 @@ async function execute(interaction) {
         });
     }
 
-    // ==============================
+
+    // =========================
     // GET OPTIONS
-    // ==============================
+    // =========================
 
     const title =
         interaction.options.getString('title');
@@ -102,15 +120,19 @@ async function execute(interaction) {
     const role =
         interaction.options.getRole('mention');
 
-    const attachment =
+    const image =
         interaction.options.getAttachment('image');
 
     const footer =
         interaction.options.getString('footer');
 
-    // ==============================
+    const footerImage =
+        interaction.options.getAttachment('footer_image');
+
+
+    // =========================
     // BASIC VALIDATION
-    // ==============================
+    // =========================
 
     if (!title || !message || !channel) {
         return interaction.editReply({
@@ -119,36 +141,50 @@ async function execute(interaction) {
         });
     }
 
-    // ==============================
-    // IMAGE VALIDATION
-    // ==============================
 
-    if (attachment) {
+    // =========================
+    // CHECK MAIN IMAGE
+    // =========================
 
-        const allowedTypes = [
-            'image/png',
-            'image/jpeg',
-            'image/jpg',
-            'image/gif',
-            'image/webp'
-        ];
+    if (image) {
 
         if (
-            attachment.contentType &&
-            !allowedTypes.includes(
-                attachment.contentType
+            image.contentType &&
+            !allowedImageTypes.includes(
+                image.contentType
             )
         ) {
             return interaction.editReply({
                 content:
-                    '❌ Please upload a valid image file (PNG, JPG, GIF, or WEBP).'
+                    '❌ The main image must be PNG, JPG, GIF, or WEBP.'
             });
         }
     }
 
-    // ==============================
+
+    // =========================
+    // CHECK FOOTER IMAGE
+    // =========================
+
+    if (footerImage) {
+
+        if (
+            footerImage.contentType &&
+            !allowedImageTypes.includes(
+                footerImage.contentType
+            )
+        ) {
+            return interaction.editReply({
+                content:
+                    '❌ The footer image must be PNG, JPG, GIF, or WEBP.'
+            });
+        }
+    }
+
+
+    // =========================
     // CREATE EMBED
-    // ==============================
+    // =========================
 
     const embed =
         new EmbedBuilder()
@@ -157,31 +193,76 @@ async function execute(interaction) {
             .setDescription(message)
             .setTimestamp();
 
-    // ==============================
-    // ADD IMAGE TO EMBED
-    // ==============================
 
-    if (attachment) {
-        embed.setImage(attachment.url);
+    // =========================
+    // MAIN IMAGE
+    // =========================
+
+    if (image) {
+
+        embed.setImage(
+            `attachment://${image.name}`
+        );
+
     }
 
-    // ==============================
-    // ADD FOOTER
-    // ==============================
 
-    if (footer) {
-        embed.setFooter({
-            text: footer
+    // =========================
+    // FOOTER
+    // =========================
+
+    if (footer || footerImage) {
+
+        const footerData = {
+            text: footer || '\u200B'
+        };
+
+        if (footerImage) {
+
+            footerData.iconURL =
+                `attachment://${footerImage.name}`;
+
+        }
+
+        embed.setFooter(footerData);
+    }
+
+
+    // =========================
+    // FILE ATTACHMENTS
+    // =========================
+
+    const files = [];
+
+
+    if (image) {
+
+        files.push({
+            attachment: image.url,
+            name: image.name
         });
+
     }
 
-    // ==============================
+
+    if (footerImage) {
+
+        files.push({
+            attachment: footerImage.url,
+            name: footerImage.name
+        });
+
+    }
+
+
+    // =========================
     // SEND ANNOUNCEMENT
-    // ==============================
+    // =========================
 
     try {
 
         await channel.send({
+
             content: role
                 ? `${role}`
                 : undefined,
@@ -190,11 +271,14 @@ async function execute(interaction) {
                 embed
             ],
 
+            files,
+
             allowedMentions: {
                 roles: role
                     ? [role.id]
                     : []
             }
+
         });
 
     } catch (error) {
@@ -210,9 +294,10 @@ async function execute(interaction) {
         });
     }
 
-    // ==============================
-    // SILENT COMMAND
-    // ==============================
+
+    // =========================
+    // DELETE COMMAND RESPONSE
+    // =========================
 
     try {
 
@@ -224,8 +309,11 @@ async function execute(interaction) {
             '⚠️ Could not delete announcement command response:',
             error
         );
+
     }
+
 }
+
 
 module.exports = {
     data,
