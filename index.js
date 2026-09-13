@@ -2,7 +2,8 @@ require('dotenv').config();
 
 const {
     Client,
-    GatewayIntentBits
+    GatewayIntentBits,
+    PermissionFlagsBits
 } = require('discord.js');
 
 const {
@@ -14,37 +15,49 @@ const {
     setSticky
 } = require('./utils/stickyManager');
 
+const {
+    getAutoThread
+} = require('./utils/autoThreadManager');
+
 const fs = require('node:fs');
 const path = require('node:path');
+
 
 // =========================
 // CLIENT
 // =========================
 
-const client = new Client({
-    intents: [
-        GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildMessages
-    ]
-});
+const client =
+    new Client({
+
+        intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages
+        ]
+
+    });
+
 
 // =========================
-// POLLS
+// STORAGE
 // =========================
 
-client.polls = new Map();
+client.polls =
+    new Map();
+
+client.stickyQueues =
+    new Map();
+
+client.autoThreadQueues =
+    new Map();
+
+client.commands =
+    new Map();
+
 
 // =========================
-// STICKY QUEUES
+// LOAD COMMANDS
 // =========================
-
-client.stickyQueues = new Map();
-
-// =========================
-// COMMANDS
-// =========================
-
-client.commands = new Map();
 
 const commandsPath =
     path.join(
@@ -61,7 +74,8 @@ const commandFiles =
         );
 
 for (
-    const file of commandFiles
+    const file
+    of commandFiles
 ) {
 
     const filePath =
@@ -85,6 +99,7 @@ for (
     }
 }
 
+
 // =========================
 // READY
 // =========================
@@ -94,30 +109,255 @@ client.once(
     () => {
 
         console.log(
-            `✅ Logged in as ${client.user.tag}`
+            `Logged in as ${client.user.tag}`
         );
 
         console.log(
-            `📊 Active polls: ${client.polls.size}`
+            `Active polls: ${client.polls.size}`
         );
 
         console.log(
-            `📌 Sticky system loaded.`
+            'Sticky system loaded.'
+        );
+
+        console.log(
+            'Auto-thread system loaded.'
         );
     }
 );
 
-// ==================================================
-// MESSAGE CREATE
-// ==================================================
+
+// =========================
+// AUTO THREAD
+// =========================
 
 client.on(
     'messageCreate',
     async message => {
 
+        // Ignore bots
+        if (
+            message.author.bot
+        ) {
+            return;
+        }
+
+        // Ignore DMs
+        if (
+            !message.guild
+        ) {
+            return;
+        }
+
+        // Ignore messages inside threads
+        if (
+            message.channel.isThread()
+        ) {
+            return;
+        }
+
+        const config =
+            getAutoThread(
+                message.channel.id
+            );
+
+        if (
+            !config ||
+            !config.enabled
+        ) {
+            return;
+        }
+
         // =========================
-        // IGNORE BOTS
+        // CHECK BOT PERMISSIONS
         // =========================
+
+        const permissions =
+            message.channel.permissionsFor(
+                client.user
+            );
+
+        if (
+            !permissions ||
+            !permissions.has(
+                PermissionFlagsBits.CreatePublicThreads
+            )
+        ) {
+
+            console.log(
+                `Missing Create Public Threads permission in #${message.channel.name}`
+            );
+
+            return;
+        }
+
+        // =========================
+        // PREVENT DUPLICATE PROCESSING
+        // =========================
+
+        if (
+            message.hasThread
+        ) {
+            return;
+        }
+
+        // =========================
+        // QUEUE PER CHANNEL
+        // =========================
+
+        if (
+            !client.autoThreadQueues.has(
+                message.channel.id
+            )
+        ) {
+
+            client.autoThreadQueues.set(
+                message.channel.id,
+                Promise.resolve()
+            );
+        }
+
+        const previousTask =
+            client.autoThreadQueues.get(
+                message.channel.id
+            );
+
+        const nextTask =
+            previousTask
+                .then(
+                    async () => {
+
+                        // =========================
+                        // CHECK AGAIN
+                        // =========================
+
+                        const currentConfig =
+                            getAutoThread(
+                                message.channel.id
+                            );
+
+                        if (
+                            !currentConfig ||
+                            !currentConfig.enabled
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            message.hasThread
+                        ) {
+                            return;
+                        }
+
+                        // =========================
+                        // THREAD NAME
+                        // =========================
+
+                        let threadName =
+                            message.content
+                                .trim()
+                                .replace(
+                                    /\s+/g,
+                                    ' '
+                                );
+
+                        if (
+                            !threadName
+                        ) {
+
+                            threadName =
+                                `Thread by ${message.author.username}`;
+
+                        } else {
+
+                            threadName =
+                                `${message.author.username}: ${threadName}`;
+                        }
+
+                        // Discord thread names
+                        // cannot exceed 100 characters.
+
+                        threadName =
+                            threadName.substring(
+                                0,
+                                100
+                            );
+
+                        // =========================
+                        // CREATE THREAD
+                        // =========================
+
+                        try {
+
+                            const thread =
+                                await message.startThread({
+
+                                    name:
+                                        threadName,
+
+                                    autoArchiveDuration:
+                                        currentConfig.autoArchiveDuration ||
+                                        1440,
+
+                                    reason:
+                                        'Automatic thread creation'
+                                });
+
+                            // =========================
+                            // ADD MESSAGE AUTHOR
+                            // =========================
+
+                            try {
+
+                                await thread.members.add(
+                                    message.author.id
+                                );
+
+                            } catch (error) {
+
+                                console.log(
+                                    `Could not add ${message.author.tag} to auto thread.`
+                                );
+                            }
+
+                            console.log(
+                                `Created auto thread "${thread.name}" in #${message.channel.name}`
+                            );
+
+                        } catch (error) {
+
+                            console.error(
+                                `Could not create auto thread in #${message.channel.name}:`,
+                                error
+                            );
+                        }
+                    }
+                )
+                .catch(
+                    error => {
+
+                        console.error(
+                            'Auto-thread queue error:',
+                            error
+                        );
+                    }
+                );
+
+        client.autoThreadQueues.set(
+            message.channel.id,
+            nextTask
+        );
+    }
+);
+
+
+// =========================
+// STICKY SYSTEM
+// =========================
+
+client.on(
+    'messageCreate',
+    async message => {
 
         if (
             message.author.bot
@@ -125,32 +365,22 @@ client.on(
             return;
         }
 
-        // =========================
-        // IGNORE DMs
-        // =========================
-
         if (
             !message.guild
         ) {
             return;
         }
 
-        // =========================
-        // GET STICKY
-        // =========================
-
         const sticky =
             getSticky(
                 message.channel.id
             );
 
-        if (!sticky) {
+        if (
+            !sticky
+        ) {
             return;
         }
-
-        // =========================
-        // CREATE CHANNEL QUEUE
-        // =========================
 
         if (
             !client.stickyQueues.has(
@@ -164,10 +394,6 @@ client.on(
             );
         }
 
-        // =========================
-        // QUEUE UPDATE
-        // =========================
-
         const previousTask =
             client.stickyQueues.get(
                 message.channel.id
@@ -177,10 +403,6 @@ client.on(
             previousTask
                 .then(
                     async () => {
-
-                        // =========================
-                        // GET CURRENT STICKY
-                        // =========================
 
                         const currentSticky =
                             getSticky(
@@ -212,7 +434,7 @@ client.on(
 
                             } catch (error) {
 
-                                // The sticky may already be deleted.
+                                // Sticky may already be deleted.
                             }
                         }
 
@@ -224,20 +446,19 @@ client.on(
 
                             const newSticky =
                                 await message.channel.send({
+
                                     content:
                                         `📌 ${currentSticky.message}`
                                 });
-
-                            // =========================
-                            // UPDATE STORAGE
-                            // =========================
 
                             setSticky(
                                 message.channel.id,
                                 {
                                     ...currentSticky,
+
                                     messageId:
                                         newSticky.id,
+
                                     updatedAt:
                                         Date.now()
                                 }
@@ -246,7 +467,7 @@ client.on(
                         } catch (error) {
 
                             console.error(
-                                `❌ Could not move sticky in #${message.channel.name}:`,
+                                `Could not move sticky in #${message.channel.name}:`,
                                 error
                             );
                         }
@@ -256,7 +477,7 @@ client.on(
                     error => {
 
                         console.error(
-                            '❌ Sticky queue error:',
+                            'Sticky queue error:',
                             error
                         );
                     }
@@ -269,16 +490,17 @@ client.on(
     }
 );
 
-// ==================================================
+
+// =========================
 // INTERACTIONS
-// ==================================================
+// =========================
 
 client.on(
     'interactionCreate',
     async interaction => {
 
         // =========================
-        // SLASH COMMAND
+        // SLASH COMMANDS
         // =========================
 
         if (
@@ -290,7 +512,9 @@ client.on(
                     interaction.commandName
                 );
 
-            if (!command) {
+            if (
+                !command
+            ) {
                 return;
             }
 
@@ -304,7 +528,7 @@ client.on(
             } catch (error) {
 
                 console.error(
-                    '❌ Command error:',
+                    'Command error:',
                     error
                 );
 
@@ -321,14 +545,18 @@ client.on(
                         ) {
 
                             await interaction.deleteReply();
+
                         }
 
                     } else {
 
                         await interaction.reply({
+
                             content:
-                                '❌ Something went wrong.',
+                                'Something went wrong.',
+
                             ephemeral: true
+
                         });
                     }
 
@@ -339,6 +567,7 @@ client.on(
 
             return;
         }
+
 
         // =========================
         // POLL BUTTONS
@@ -376,7 +605,10 @@ client.on(
 
         const pollId =
             parts
-                .slice(1, -1)
+                .slice(
+                    1,
+                    -1
+                )
                 .join('_');
 
         const poll =
@@ -384,37 +616,33 @@ client.on(
                 pollId
             );
 
-        // =========================
-        // POLL NOT FOUND
-        // =========================
-
-        if (!poll) {
+        if (
+            !poll
+        ) {
 
             return interaction.reply({
+
                 content:
-                    '❌ This poll is no longer available.',
+                    'This poll is no longer available.',
+
                 ephemeral: true
+
             });
         }
-
-        // =========================
-        // POLL ENDED
-        // =========================
 
         if (
             poll.ended
         ) {
 
             return interaction.reply({
+
                 content:
-                    '⏰ This poll has already ended.',
+                    'This poll has already ended.',
+
                 ephemeral: true
+
             });
         }
-
-        // =========================
-        // INVALID OPTION
-        // =========================
 
         if (
             !Number.isInteger(
@@ -426,9 +654,12 @@ client.on(
         ) {
 
             return interaction.reply({
+
                 content:
-                    '❌ Invalid poll option.',
+                    'Invalid poll option.',
+
                 ephemeral: true
+
             });
         }
 
@@ -441,10 +672,6 @@ client.on(
             optionIndex
         );
 
-        // =========================
-        // SILENT BUTTON RESPONSE
-        // =========================
-
         try {
 
             await interaction.deferUpdate();
@@ -452,7 +679,7 @@ client.on(
         } catch (error) {
 
             console.error(
-                '❌ Could not acknowledge poll button:',
+                'Could not acknowledge poll button:',
                 error
             );
 
@@ -460,7 +687,7 @@ client.on(
         }
 
         // =========================
-        // UPDATE POLL LOG
+        // UPDATE MOD LOG
         // =========================
 
         await updatePollLog(
@@ -469,6 +696,7 @@ client.on(
         );
     }
 );
+
 
 // =========================
 // LOGIN
