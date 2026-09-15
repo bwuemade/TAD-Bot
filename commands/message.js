@@ -29,11 +29,11 @@ const data =
         .setName('message')
 
         .setDescription(
-            'Send a formatted message embed'
+            'Send a Mimu-style message embed'
         )
 
         // =========================
-        // TITLE / HEADER
+        // REQUIRED OPTIONS
         // =========================
 
         .addStringOption(
@@ -41,30 +41,22 @@ const data =
                 option
                     .setName('title')
                     .setDescription(
-                        'Message header'
+                        'Main embed title'
                     )
                     .setMaxLength(256)
                     .setRequired(true)
         )
 
-        // =========================
-        // MESSAGE
-        // =========================
-
         .addStringOption(
             option =>
                 option
-                    .setName('message')
+                    .setName('description')
                     .setDescription(
-                        'Message content'
+                        'Main message content'
                     )
                     .setMaxLength(4000)
                     .setRequired(true)
         )
-
-        // =========================
-        // CHANNEL
-        // =========================
 
         .addChannelOption(
             option =>
@@ -81,7 +73,22 @@ const data =
         )
 
         // =========================
-        // ROLE MENTION
+        // OPTIONAL HEADER
+        // =========================
+
+        .addStringOption(
+            option =>
+                option
+                    .setName('header')
+                    .setDescription(
+                        'Embed header / author name'
+                    )
+                    .setMaxLength(256)
+                    .setRequired(false)
+        )
+
+        // =========================
+        // OPTIONAL ROLE MENTION
         // =========================
 
         .addRoleOption(
@@ -95,7 +102,7 @@ const data =
         )
 
         // =========================
-        // MAIN IMAGE
+        // OPTIONAL MAIN IMAGE
         // =========================
 
         .addAttachmentOption(
@@ -103,13 +110,13 @@ const data =
                 option
                     .setName('image')
                     .setDescription(
-                        'Optional large image'
+                        'Optional large embed image'
                     )
                     .setRequired(false)
         )
 
         // =========================
-        // FOOTER TEXT
+        // OPTIONAL FOOTER
         // =========================
 
         .addStringOption(
@@ -124,7 +131,7 @@ const data =
         )
 
         // =========================
-        // FOOTER IMAGE
+        // OPTIONAL FOOTER IMAGE
         // =========================
 
         .addAttachmentOption(
@@ -179,14 +186,19 @@ async function execute(interaction) {
             'title'
         );
 
-    const message =
+    const description =
         interaction.options.getString(
-            'message'
+            'description'
         );
 
     const channel =
         interaction.options.getChannel(
             'channel'
+        );
+
+    const header =
+        interaction.options.getString(
+            'header'
         );
 
     const role =
@@ -216,13 +228,13 @@ async function execute(interaction) {
 
     if (
         !title ||
-        !message ||
+        !description ||
         !channel
     ) {
 
         return interaction.editReply({
             content:
-                'Please provide a title, message, and channel.'
+                'Please provide a title, description, and channel.'
         });
     }
 
@@ -280,9 +292,21 @@ async function execute(interaction) {
 
             .setTitle(title)
 
-            .setDescription(message)
+            .setDescription(description)
 
             .setTimestamp();
+
+
+    // =========================
+    // HEADER
+    // =========================
+
+    if (header) {
+
+        embed.setAuthor({
+            name: header
+        });
+    }
 
 
     // =========================
@@ -307,7 +331,6 @@ async function execute(interaction) {
     ) {
 
         const footerData = {
-
             text:
                 footer ||
                 '\u200B'
@@ -339,7 +362,6 @@ async function execute(interaction) {
     if (image) {
 
         files.push({
-
             attachment:
                 image.url,
 
@@ -354,7 +376,6 @@ async function execute(interaction) {
     if (footerImage) {
 
         files.push({
-
             attachment:
                 footerImage.url,
 
@@ -384,12 +405,10 @@ async function execute(interaction) {
             files,
 
             allowedMentions: {
-
                 roles:
                     role
                         ? [role.id]
                         : []
-
             }
 
         });
