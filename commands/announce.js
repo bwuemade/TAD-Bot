@@ -5,6 +5,11 @@ const {
     EmbedBuilder
 } = require('discord.js');
 
+
+// =========================
+// ALLOWED IMAGE TYPES
+// =========================
+
 const allowedImageTypes = [
     'image/png',
     'image/jpeg',
@@ -13,34 +18,61 @@ const allowedImageTypes = [
     'image/webp'
 ];
 
+
+// =========================
+// COMMAND
+// =========================
+
 const data =
     new SlashCommandBuilder()
+
         .setName('announce')
-        .setDescription('Create an announcement embed')
+
+        .setDescription(
+            'Create an announcement embed'
+        )
+
+        // =========================
+        // TITLE
+        // =========================
 
         .addStringOption(
             option =>
                 option
                     .setName('title')
-                    .setDescription('Announcement title')
+                    .setDescription(
+                        'Announcement title'
+                    )
                     .setMaxLength(256)
                     .setRequired(true)
         )
+
+        // =========================
+        // MESSAGE
+        // =========================
 
         .addStringOption(
             option =>
                 option
                     .setName('message')
-                    .setDescription('Announcement message')
+                    .setDescription(
+                        'Announcement message'
+                    )
                     .setMaxLength(4000)
                     .setRequired(true)
         )
+
+        // =========================
+        // CHANNEL
+        // =========================
 
         .addChannelOption(
             option =>
                 option
                     .setName('channel')
-                    .setDescription('Channel where the announcement will be sent')
+                    .setDescription(
+                        'Channel where the announcement will be sent'
+                    )
                     .addChannelTypes(
                         ChannelType.GuildText,
                         ChannelType.GuildAnnouncement
@@ -48,45 +80,78 @@ const data =
                     .setRequired(true)
         )
 
+        // =========================
+        // MENTION
+        // =========================
+
         .addRoleOption(
             option =>
                 option
                     .setName('mention')
-                    .setDescription('Optional role to mention')
+                    .setDescription(
+                        'Optional role to mention'
+                    )
                     .setRequired(false)
         )
+
+        // =========================
+        // MAIN IMAGE
+        // =========================
 
         .addAttachmentOption(
             option =>
                 option
                     .setName('image')
-                    .setDescription('Optional large image')
+                    .setDescription(
+                        'Optional large image'
+                    )
                     .setRequired(false)
         )
+
+        // =========================
+        // FOOTER
+        // =========================
 
         .addStringOption(
             option =>
                 option
                     .setName('footer')
-                    .setDescription('Optional footer text')
+                    .setDescription(
+                        'Optional footer text'
+                    )
                     .setMaxLength(2048)
                     .setRequired(false)
         )
+
+        // =========================
+        // FOOTER IMAGE
+        // =========================
 
         .addAttachmentOption(
             option =>
                 option
                     .setName('footer_image')
-                    .setDescription('Optional footer icon image')
+                    .setDescription(
+                        'Optional footer icon image'
+                    )
                     .setRequired(false)
         );
 
 
+// =========================
+// EXECUTE
+// =========================
+
 async function execute(interaction) {
+
+    // =========================
+    // SILENT RESPONSE
+    // =========================
 
     await interaction.deferReply({
         ephemeral: true
     });
+
 
     // =========================
     // PERMISSION CHECK
@@ -97,9 +162,10 @@ async function execute(interaction) {
             PermissionFlagsBits.ManageMessages
         )
     ) {
+
         return interaction.editReply({
             content:
-                '❌ You do not have permission to use this command.'
+                'You do not have permission to use this command.'
         });
     }
 
@@ -109,41 +175,60 @@ async function execute(interaction) {
     // =========================
 
     const title =
-        interaction.options.getString('title');
+        interaction.options.getString(
+            'title'
+        );
 
     const message =
-        interaction.options.getString('message');
+        interaction.options.getString(
+            'message'
+        );
 
     const channel =
-        interaction.options.getChannel('channel');
+        interaction.options.getChannel(
+            'channel'
+        );
 
     const role =
-        interaction.options.getRole('mention');
+        interaction.options.getRole(
+            'mention'
+        );
 
     const image =
-        interaction.options.getAttachment('image');
+        interaction.options.getAttachment(
+            'image'
+        );
 
     const footer =
-        interaction.options.getString('footer');
+        interaction.options.getString(
+            'footer'
+        );
 
     const footerImage =
-        interaction.options.getAttachment('footer_image');
+        interaction.options.getAttachment(
+            'footer_image'
+        );
 
 
     // =========================
     // BASIC VALIDATION
     // =========================
 
-    if (!title || !message || !channel) {
+    if (
+        !title ||
+        !message ||
+        !channel
+    ) {
+
         return interaction.editReply({
             content:
-                '❌ Please provide a title, message, and channel.'
+                'Please provide a title, message, and channel.'
         });
     }
 
 
     // =========================
-    // CHECK MAIN IMAGE
+    // IMAGE VALIDATION
     // =========================
 
     if (image) {
@@ -154,16 +239,17 @@ async function execute(interaction) {
                 image.contentType
             )
         ) {
+
             return interaction.editReply({
                 content:
-                    '❌ The main image must be PNG, JPG, GIF, or WEBP.'
+                    'The main image must be PNG, JPG, GIF, or WEBP.'
             });
         }
     }
 
 
     // =========================
-    // CHECK FOOTER IMAGE
+    // FOOTER IMAGE VALIDATION
     // =========================
 
     if (footerImage) {
@@ -174,23 +260,41 @@ async function execute(interaction) {
                 footerImage.contentType
             )
         ) {
+
             return interaction.editReply({
                 content:
-                    '❌ The footer image must be PNG, JPG, GIF, or WEBP.'
+                    'The footer image must be PNG, JPG, GIF, or WEBP.'
             });
         }
     }
 
 
     // =========================
-    // CREATE EMBED
+    // AUTOMATIC HEADER
+    // =========================
+
+    const header =
+        '━━━━━━━━━━━━━━━━━━━━\n' +
+        '           ANNOUNCEMENT\n' +
+        '━━━━━━━━━━━━━━━━━━━━\n\n';
+
+
+    // =========================
+    // EMBED
     // =========================
 
     const embed =
         new EmbedBuilder()
+
             .setColor('#87CEFA')
+
             .setTitle(title)
-            .setDescription(message)
+
+            .setDescription(
+                header +
+                message
+            )
+
             .setTimestamp();
 
 
@@ -203,7 +307,6 @@ async function execute(interaction) {
         embed.setImage(
             `attachment://${image.name}`
         );
-
     }
 
 
@@ -211,25 +314,34 @@ async function execute(interaction) {
     // FOOTER
     // =========================
 
-    if (footer || footerImage) {
+    if (
+        footer ||
+        footerImage
+    ) {
 
         const footerData = {
-            text: footer || '\u200B'
+
+            text:
+                footer ||
+                '\u200B'
         };
+
 
         if (footerImage) {
 
             footerData.iconURL =
                 `attachment://${footerImage.name}`;
-
         }
 
-        embed.setFooter(footerData);
+
+        embed.setFooter(
+            footerData
+        );
     }
 
 
     // =========================
-    // FILE ATTACHMENTS
+    // FILES
     // =========================
 
     const files = [];
@@ -238,20 +350,26 @@ async function execute(interaction) {
     if (image) {
 
         files.push({
-            attachment: image.url,
-            name: image.name
-        });
 
+            attachment:
+                image.url,
+
+            name:
+                image.name
+        });
     }
 
 
     if (footerImage) {
 
         files.push({
-            attachment: footerImage.url,
-            name: footerImage.name
-        });
 
+            attachment:
+                footerImage.url,
+
+            name:
+                footerImage.name
+        });
     }
 
 
@@ -263,9 +381,10 @@ async function execute(interaction) {
 
         await channel.send({
 
-            content: role
-                ? `${role}`
-                : undefined,
+            content:
+                role
+                    ? `${role}`
+                    : undefined,
 
             embeds: [
                 embed
@@ -274,9 +393,12 @@ async function execute(interaction) {
             files,
 
             allowedMentions: {
-                roles: role
-                    ? [role.id]
-                    : []
+
+                roles:
+                    role
+                        ? [role.id]
+                        : []
+
             }
 
         });
@@ -284,13 +406,13 @@ async function execute(interaction) {
     } catch (error) {
 
         console.error(
-            '❌ Could not send announcement:',
+            'Could not send announcement:',
             error
         );
 
         return interaction.editReply({
             content:
-                '❌ I could not send the announcement. Make sure I have permission to send messages and embeds in that channel.'
+                'I could not send the announcement. Make sure I have permission to send messages and embeds in that channel.'
         });
     }
 
@@ -306,14 +428,16 @@ async function execute(interaction) {
     } catch (error) {
 
         console.error(
-            '⚠️ Could not delete announcement command response:',
+            'Could not delete announcement command response:',
             error
         );
-
     }
-
 }
 
+
+// =========================
+// EXPORT
+// =========================
 
 module.exports = {
     data,
